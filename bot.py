@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 BOT DE TELEGRAM - SUKUNA CHK
-Versión 25.6 - Fix de run_polling para Render + Lógica de fotos
+Versión 25.7 - Soporte para Fotos Animadas (Conversión a GIF) + Lógica estable
 """
 
 import re
@@ -16,9 +16,9 @@ import threading
 import asyncio
 from datetime import datetime, timedelta
 from flask import Flask
-from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, InputMediaPhoto
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, InputMediaPhoto, InputMediaAnimation
 from telegram.ext import Application, CommandHandler, MessageHandler, filters, ContextTypes, CallbackQueryHandler
-from telegram.request import HTTPXRequest # IMPORTANTE PARA EL TIMEOUT
+from telegram.request import HTTPXRequest
 
 # ============ CONFIGURACIÓN ============
 TOKEN = os.environ.get("TELEGRAM_TOKEN", "8909444338:AAGCyNDfa3HpxCFGwuqMR_I19pyopjOKLXg")
@@ -313,7 +313,7 @@ async def setname_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     NOMBRE_BOT = " ".join(context.args); guardar_nombre(NOMBRE_BOT)
     await update.message.reply_text(f"✅ Nombre cambiado a: {NOMBRE_BOT}")
 
-# ============ DESCARGADOR INTELIGENTE (PRIORIZA FOTOS EN TIKTOK) ============
+# ============ DESCARGADOR INTELIGENTE (Soporte Live Photos) ============
 async def down_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
     if not context.args: return await update.message.reply_text("❌ Uso: `.down <enlace>`")
@@ -323,7 +323,6 @@ async def down_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     timestamp = int(time.time())
     
     try:
-        # 1. Si es un enlace de TikTok, intentamos gallery-dl PRIMERO (para fotos y videos)
         if "tiktok.com" in url:
             carpeta_salida = f"media_{user.id}_{timestamp}"
             
@@ -333,13 +332,22 @@ async def down_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 
                 fotos = []
                 videos = []
+                otros = [] # Para archivos raros (Live Photos)
+                
                 for root, dirs, files in os.walk(carpeta_salida):
                     for file in files:
-                        if file.endswith(('.jpg', '.jpeg', '.png', '.webp')):
-                            fotos.append(os.path.join(root, file))
+                        ruta = os.path.join(root, file)
+                        if file.endswith(('.jpg', '.jpeg', '.png')):
+                            fotos.append(ruta)
+                        elif file.endswith('.webp'):
+                            # TikTok a veces guarda las animadas como webp
+                            otros.append(ruta)
                         elif file.endswith('.mp4'):
-                            videos.append(os.path.join(root, file))
+                            videos.append(ruta)
+                        else:
+                            otros.append(ruta)
                 
+                # Si hay fotos normales
                 if fotos:
                     titulo = "Fotos de TikTok"
                     if len(fotos) > 1:
@@ -355,6 +363,23 @@ async def down_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     shutil.rmtree(carpeta_salida, ignore_errors=True)
                     return
                 
+                # Si hay archivos raros (posibles Live Photos / WebP animados), intentamos convertirlos a GIF
+                if otros:
+                    for ruta_otro in otros:
+                        archivo_gif = f"animado_{user.id}_{timestamp}.gif"
+                        # Usamos ffmpeg para convertirlo a GIF
+                        comando_ffmpeg = ["ffmpeg", "-i", ruta_otro, "-vf", "fps=15,scale=320:-1:flags=lanczos", archivo_gif, "-y"]
+                        try:
+                            subprocess.run(comando_ffmpeg, check=True, capture_output=True, timeout=60)
+                            await update.message.reply_animation(animation=open(archivo_gif, 'rb'), caption="✨ <b>Foto Animada</b>")
+                            os.remove(archivo_gif)
+                        except Exception as e:
+                            print(f"Error convirtiendo a GIF: {e}")
+                    
+                    await msg.delete()
+                    shutil.rmtree(carpeta_salida, ignore_errors=True)
+                    return
+
                 if videos:
                     archivo_salida = videos[0]
                 else:
@@ -362,9 +387,6 @@ async def down_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     
             except Exception as e:
                 pass
-            finally:
-                if os.path.exists(carpeta_salida) and not os.path.exists(os.path.join(carpeta_salida, "video_ready")):
-                    pass
 
         # --- Lógica para Videos ---
         if not 'archivo_salida' in locals() or not os.path.exists(archivo_salida):
@@ -676,7 +698,6 @@ def main():
     
     threading.Thread(target=run_web_server, daemon=True).start()
     
-    # CONFIGURACIÓN DE TIMEOUTS CORRECTA PARA EVITAR CAÍDAS
     request = HTTPXRequest(connect_timeout=20.0, read_timeout=20.0)
     app = Application.builder().token(TOKEN).request(request).build()
     
@@ -700,7 +721,7 @@ def main():
     
     app.add_handler(MessageHandler(filters.TEXT & ~filters.TEXT | filters.COMMAND & ~filters.COMMAND | filters.TEXT, handle_text))
     
-    print("🌸 Bot Sukuna Chk iniciado (Render + Colores + Fix TikTok + Álbum Fotos).")
+    print("🌸 Bot Sukuna Chk iniciado (Render + Fix Fotos Animadas).")
     app.run_polling()
 
 if __name__ == "__main__":
