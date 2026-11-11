@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 BOT DE TELEGRAM - SUKUNA CHK
-Versión 25.5 - Lógica de descarga corregida (Prioriza fotos en TikTok)
+Versión 25.6 - Fix de run_polling para Render + Lógica de fotos
 """
 
 import re
@@ -18,6 +18,7 @@ from datetime import datetime, timedelta
 from flask import Flask
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, InputMediaPhoto
 from telegram.ext import Application, CommandHandler, MessageHandler, filters, ContextTypes, CallbackQueryHandler
+from telegram.request import HTTPXRequest # IMPORTANTE PARA EL TIMEOUT
 
 # ============ CONFIGURACIÓN ============
 TOKEN = os.environ.get("TELEGRAM_TOKEN", "8909444338:AAGCyNDfa3HpxCFGwuqMR_I19pyopjOKLXg")
@@ -327,11 +328,9 @@ async def down_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
             carpeta_salida = f"media_{user.id}_{timestamp}"
             
             try:
-                # gallery-dl es más robusto para fotos, pero también baja videos
                 comando = ["gallery-dl", "--dest", carpeta_salida, url]
                 subprocess.run(comando, check=True, capture_output=True, timeout=120)
                 
-                # Revisar qué se descargó
                 fotos = []
                 videos = []
                 for root, dirs, files in os.walk(carpeta_salida):
@@ -341,12 +340,11 @@ async def down_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
                         elif file.endswith('.mp4'):
                             videos.append(os.path.join(root, file))
                 
-                # Si se descargaron fotos, las enviamos
                 if fotos:
                     titulo = "Fotos de TikTok"
                     if len(fotos) > 1:
                         media_group = []
-                        for i, ruta_foto in enumerate(fotos[:10]): # Máximo 10 fotos por álbum en Telegram
+                        for i, ruta_foto in enumerate(fotos[:10]): 
                             caption = f"🖼️ <b>{titulo}</b>" if i == 0 else ""
                             media_group.append(InputMediaPhoto(media=open(ruta_foto, 'rb'), caption=caption, parse_mode='HTML'))
                         await update.message.reply_media_group(media=media_group)
@@ -355,22 +353,20 @@ async def down_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     
                     await msg.delete()
                     shutil.rmtree(carpeta_salida, ignore_errors=True)
-                    return # Terminamos aquí si enviamos fotos
+                    return
                 
-                # Si no hay fotos pero hay video, el flujo continúa abajo para procesar el video
                 if videos:
-                    archivo_salida = videos[0] # Tomamos el primer video descargado
+                    archivo_salida = videos[0]
                 else:
                     raise Exception("No se encontraron fotos ni videos.")
                     
             except Exception as e:
-                # Si gallery-dl falla (ej. es un video), usamos yt-dlp
                 pass
             finally:
                 if os.path.exists(carpeta_salida) and not os.path.exists(os.path.join(carpeta_salida, "video_ready")):
-                    pass # No borramos aquí si necesitamos el video
+                    pass
 
-        # --- Lógica para Videos (Si no fue foto o si gallery-dl falló) ---
+        # --- Lógica para Videos ---
         if not 'archivo_salida' in locals() or not os.path.exists(archivo_salida):
             archivo_salida = f"video_{user.id}_{timestamp}.mp4"
             
@@ -391,7 +387,6 @@ async def down_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
             comando = ["yt-dlp", "--impersonate", "chrome", "--format", "b", "--no-warnings", "-o", archivo_salida, url]
             subprocess.run(comando, check=True, capture_output=True, timeout=120)
 
-        # Procesar y enviar video
         if os.path.exists(archivo_salida):
             archivo_audio = f"audio_{user.id}_{timestamp}.mp3"
             archivo_arreglado = f"fixed_{archivo_salida}"
@@ -425,7 +420,6 @@ async def down_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     except Exception as e: 
         await msg.edit_text(f"❌ Error: {e}")
     finally:
-        # Limpieza final de la carpeta temporal
         if 'carpeta_salida' in locals() and os.path.exists(carpeta_salida):
             shutil.rmtree(carpeta_salida, ignore_errors=True)
 
@@ -682,7 +676,10 @@ def main():
     
     threading.Thread(target=run_web_server, daemon=True).start()
     
-    app = Application.builder().token(TOKEN).build()
+    # CONFIGURACIÓN DE TIMEOUTS CORRECTA PARA EVITAR CAÍDAS
+    request = HTTPXRequest(connect_timeout=20.0, read_timeout=20.0)
+    app = Application.builder().token(TOKEN).request(request).build()
+    
     app.add_handler(CommandHandler("start", start_cmd))
     app.add_handler(CommandHandler("cmds", cmds_cmd))
     app.add_handler(CommandHandler("me", me_cmd))
@@ -704,7 +701,7 @@ def main():
     app.add_handler(MessageHandler(filters.TEXT & ~filters.TEXT | filters.COMMAND & ~filters.COMMAND | filters.TEXT, handle_text))
     
     print("🌸 Bot Sukuna Chk iniciado (Render + Colores + Fix TikTok + Álbum Fotos).")
-    app.run_polling(connect_timeout=30, read_timeout=30, write_timeout=30, pool_timeout=30)
+    app.run_polling()
 
 if __name__ == "__main__":
     main()
