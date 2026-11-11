@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """
-BOT DE TELEGRAM - WUAWURI CHK (Adaptado para Render)
+BOT DE TELEGRAM - WUAWURI CHK
+Versión 21.1 - Adaptado para Render (Flask Web Server) con colores y toda la funcionalidad original
 """
 
 import re
@@ -213,7 +214,8 @@ async def ejecutar_generacion_dir(update: Update, context: ContextTypes.DEFAULT_
             f"<code>━━━━━━━━━━━━━━━━━━━━━━━</code>\n〰️ <b>Req By:</b> {get_rango(user.id, user.first_name)}\n"
             f"<code>━━━━━━━━━━━━━━━━━━━━━━━</code>\n🔥 <b>Bot Version:</b> 1.3 ⛈"
         )
-        kb = [[InlineKeyboardButton("🔄 Re-Gen Address", callback_data='btn_regen_dir'), InlineKeyboardButton("!! Updates ↗", url="https://t.me/tu_canal")]]
+        # COLORES RESTAURADOS AQUÍ
+        kb = [[InlineKeyboardButton("🔄 Re-Gen Address", callback_data='btn_regen_dir', api_kwargs={"style": "primary"}), InlineKeyboardButton("!! Updates ↗", url="https://t.me/tu_canal", api_kwargs={"style": "danger"})]]
         
         if msg: await msg.edit_text(texto, reply_markup=InlineKeyboardMarkup(kb), parse_mode='HTML')
         else: await update.callback_query.message.edit_text(texto, reply_markup=InlineKeyboardMarkup(kb), parse_mode='HTML')
@@ -251,7 +253,8 @@ async def gen_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     texto = f"<a href='tg://user?id={user.id}'>{nombre_mostrar}</a>\n<code>.gen {arg}</code>\n⚡ <b>{NOMBRE_BOT} | CC Generator</b>\n<code>━━━━━━━━━━━━━━━━━━━━━━━</code>\n"
     for t in tarjetas: texto += f"<code>{t}</code>\n"
     texto += f"<code>━━━━━━━━━━━━━━━━━━━━━━━</code>\n➤ <b>Bin:</b> {limpiar_numero(partes[0])[:6]}\n➤ <b>Info:</b> {brand}\n➤ <b>Issuer:</b> {banco}\n➤ <b>Country:</b> {pais}\n<code>━━━━━━━━━━━━━━━━━━━━━━━</code>\n〰️ <b>Req By:</b> {rango}\n<code>━━━━━━━━━━━━━━━━━━━━━━━</code>\n🔥 <b>Bot Version:</b> 1.3 ⛈"
-    kb = [[InlineKeyboardButton("⚙️ Re-Gen", callback_data='btn_regen'), InlineKeyboardButton("!! Updates ↗", url="https://t.me/tu_canal")]]
+    # COLORES RESTAURADOS AQUÍ
+    kb = [[InlineKeyboardButton("⚙️ Re-Gen", callback_data='btn_regen', api_kwargs={"style": "primary"}), InlineKeyboardButton("!! Updates ↗", url="https://t.me/tu_canal", api_kwargs={"style": "danger"})]]
     await update.message.reply_text(texto, reply_markup=InlineKeyboardMarkup(kb), parse_mode='HTML')
 
 # ============ COMANDOS BÁSICOS ============
@@ -263,15 +266,17 @@ async def start_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if es_owner(user.id): rango = "👑 Fundador"
     elif es_admin(user.id): rango = "🛡️ Admin"
     caption = f"🌸 <b>WUAWURI CHK</b> 🌸\n║  ✨ Nuevo Proyecto ✨            ║\n╚══════════════════════════════════════╝\n\n👤 <b>Usuario:</b> {user.first_name}\n🆔 <b>ID:</b> <code>{user.id}</code>\n🏆 <b>Rango:</b> {rango}\n\n━━━━━━━━━━━━━━━━━━━━━━\n👉 Usa /cmds para abrir el panel interactivo."
-    keyboard = [[InlineKeyboardButton("📰 References ↗", url="https://t.me/tu_canal"), InlineKeyboardButton("📈 Updates ↗", url="https://t.me/tu_canal")]]
+    # COLORES RESTAURADOS AQUÍ
+    keyboard = [[InlineKeyboardButton("📰 References ↗", url="https://t.me/tu_canal", api_kwargs={"style": "danger"}), InlineKeyboardButton("📈 Updates ↗", url="https://t.me/tu_canal", api_kwargs={"style": "success"})]]
     await update.message.reply_photo(photo=START_IMAGE, caption=caption, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode='HTML')
 
 async def cmds_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
     if esta_baneado(user.id): return await update.message.reply_text("🚫 Estás baneado.")
     caption = f"🦾 <b>{NOMBRE_BOT} | Command Panel</b>\n━━━━━━━━━━━━━━━━━━━━━━\n⚪ Gateways: 4 | Tools: 14\n⚪ Api Status: Online ✅\n━━━━━━━━━━━━━━━━━━━━━━\n🔥 Bot Version: 1.3 ⚡️"
-    keyboard = [[InlineKeyboardButton("⚡ Gateways", callback_data='menu_gateways'), InlineKeyboardButton("⚙️ Tools", callback_data='menu_tools')], [InlineKeyboardButton("📰 References ↗", url="https://t.me/tu_canal"), InlineKeyboardButton("🆓 Free Group ↗", url="https://t.me/tu_grupo")], [InlineKeyboardButton("📈 Updates ↗", url="https://t.me/tu_canal"), InlineKeyboardButton("💸 Buy Kaori ↗", url="https://t.me/tu_contacto")]]
-    if es_admin(user.id): keyboard.append([InlineKeyboardButton("👑 Panel de Control", callback_data='owner_panel')])
+    # COLORES RESTAURADOS AQUÍ
+    keyboard = [[InlineKeyboardButton("⚡ Gateways", callback_data='menu_gateways', api_kwargs={"style": "primary"}), InlineKeyboardButton("⚙️ Tools", callback_data='menu_tools', api_kwargs={"style": "primary"})], [InlineKeyboardButton("📰 References ↗", url="https://t.me/tu_canal", api_kwargs={"style": "danger"}), InlineKeyboardButton("🆓 Free Group ↗", url="https://t.me/tu_grupo", api_kwargs={"style": "success"})], [InlineKeyboardButton("📈 Updates ↗", url="https://t.me/tu_canal", api_kwargs={"style": "danger"}), InlineKeyboardButton("💸 Buy Kaori ↗", url="https://t.me/tu_contacto", api_kwargs={"style": "success"})]]
+    if es_admin(user.id): keyboard.append([InlineKeyboardButton("👑 Panel de Control", callback_data='owner_panel', api_kwargs={"style": "danger"})])
     await update.message.reply_photo(photo=START_IMAGE, caption=caption, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode='HTML')
 
 async def me_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -311,7 +316,7 @@ async def setname_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     NOMBRE_BOT = " ".join(context.args); guardar_nombre(NOMBRE_BOT)
     await update.message.reply_text(f"✅ Nombre cambiado a: {NOMBRE_BOT}")
 
-# ============ DESCARGADOR INTELIGENTE ============
+# ============ DESCARGADOR INTELIGENTE CON AUDIO Y CFR ============
 async def down_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
     if not context.args: return await update.message.reply_text("❌ Uso: `.down <enlace>`")
@@ -454,7 +459,8 @@ async def owner_panel(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not es_admin(update.effective_user.id): return await query.answer("❌ No permisos.", show_alert=True)
     conn = sqlite3.connect('bot_stats.db'); c = conn.cursor(); c.execute("SELECT COUNT(*) FROM usuarios"); total = c.fetchone()[0]; c.execute("SELECT COUNT(*) FROM usuarios WHERE es_vip=1"); vips = c.fetchone()[0]; conn.close()
     caption = f"👑 <b>{NOMBRE_BOT} | Fundador Panel</b>\n━━━━━━━━━━━━━━━━━━━━━━\n👥 Usuarios: <b>{total}</b>\n⭐ VIPs: <b>{vips}</b>\n━━━━━━━━━━━━━━━━━━━━━━"
-    keyboard = [[InlineKeyboardButton("👥 Gestionar Usuarios", callback_data='admin_users_0')], [InlineKeyboardButton("🚫 Cerrar Panel", callback_data='btn_back_main')]]
+    # COLORES RESTAURADOS AQUÍ
+    keyboard = [[InlineKeyboardButton("👥 Gestionar Usuarios", callback_data='admin_users_0', api_kwargs={"style": "primary"})], [InlineKeyboardButton("🚫 Cerrar Panel", callback_data='btn_back_main', api_kwargs={"style": "danger"})]]
     try: await query.message.edit_caption(caption=caption, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode='HTML')
     except: await query.message.reply_text(caption, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode='HTML')
 
@@ -466,10 +472,11 @@ async def admin_list_users(update: Update, context: ContextTypes.DEFAULT_TYPE):
     caption = f"👥 <b>Usuarios</b> (Pág {page+1})\n<code>━━━━━━━━━━━━━━━━━━━━━━</code>\n"; keyboard = []
     for u_id, nombre, vip in usuarios:
         caption += f"🆔 <code>{u_id}</code> | {nombre} | {'⭐' if vip else '👤'}\n"
-        keyboard.append([InlineKeyboardButton(f"{'❌ Quitar' if vip else '⭐ Dar'} VIP", callback_data=f"admin_{'unvip' if vip else 'setvip'}_{u_id}")])
+        # COLORES RESTAURADOS AQUÍ
+        keyboard.append([InlineKeyboardButton(f"{'❌ Quitar' if vip else '⭐ Dar'} VIP", callback_data=f"admin_{'unvip' if vip else 'setvip'}_{u_id}", api_kwargs={"style": "danger" if vip else "success"})])
     if page > 0: keyboard.append([InlineKeyboardButton("⬅️", callback_data=f'admin_users_{page-1}')])
     if offset + limit < total: keyboard.append([InlineKeyboardButton("➡️", callback_data=f'admin_users_{page+1}')])
-    keyboard.append([InlineKeyboardButton("🔙 Volver", callback_data='owner_panel')])
+    keyboard.append([InlineKeyboardButton("🔙 Volver", callback_data='owner_panel', api_kwargs={"style": "primary"})])
     try: await query.message.edit_caption(caption=caption, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode='HTML')
     except: pass
 
@@ -512,40 +519,83 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     elif query.data.startswith('admin_users_'): await admin_list_users(update, context)
     elif query.data.startswith('admin_setvip_') or query.data.startswith('admin_unvip_'): await admin_toggle_vip(update, context)
     
+    # ============ MENÚ GATEWAYS ============
     elif query.data == 'menu_gateways':
         caption = f"🦾 <b>{NOMBRE_BOT} | Gateways</b>\n━━━━━━━━━━━━━━━━━━━━━━\n🔘 Active: 4 🟩\n🔘 Inactive: 0 ❌\n🔘 Maintenance: 0 ⚠️\n━━━━━━━━━━━━━━━━━━━━━━\n☁️ Bot Version: 1.3 ⛈"
-        keyboard = [[InlineKeyboardButton("🔘 Auth", callback_data='gw_auth'), InlineKeyboardButton("🔘 Charge", callback_data='gw_charge')], [InlineKeyboardButton("🆓 Free Gate", callback_data='gw_free')], [InlineKeyboardButton("🚫 Back", callback_data='btn_back_main')]]
+        # COLORES RESTAURADOS AQUÍ
+        keyboard = [
+            [InlineKeyboardButton("🔘 Auth", callback_data='gw_auth', api_kwargs={"style": "primary"}), InlineKeyboardButton("🔘 Charge", callback_data='gw_charge', api_kwargs={"style": "primary"})], 
+            [InlineKeyboardButton("🆓 Free Gate", callback_data='gw_free', api_kwargs={"style": "success"})], 
+            [InlineKeyboardButton("🚫 Back", callback_data='btn_back_main', api_kwargs={"style": "danger"})]
+        ]
         try: await query.message.edit_caption(caption=caption, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode='HTML')
         except: pass
         
+    # ============ PANEL AUTH CON COMANDOS ============
     elif query.data == 'gw_auth':
-        caption = (f"🦾 <b>{NOMBRE_BOT} | Auth</b> 🦾 4/4\n━━━━━━━━━━━━━━━━━━━━━━\n🔘 <b>Braintree</b> | ON ✅ | Premium\n   ➤ <code>.check_braintree 12345678xxx|MM|YY|CVV</code>\n━━━━━━━━━━━━━━━━━━━━━━\n🔘 <b>Stripe</b> | ON ✅ | Free\n   ➤ <code>.check_stripe 12345678xxx|MM|YY|CVV</code>\n━━━━━━━━━━━━━━━━━━━━━━\n🔘 <b>Free Gate</b> | ON ✅ | Free\n   ➤ <code>.check_gratis 12345678xxx|MM|YY|CVV</code>\n━━━━━━━━━━━━━━━━━━━━━━\n🔘 <b>Massive Gate</b> | ON ✅ | Premium\n   ➤ <code>/mass1 1234 5678 9012...</code>\n━━━━━━━━━━━━━━━━━━━━━━\n☁️ Bot Version: 1.3 ⛈")
-        keyboard = [[InlineKeyboardButton("🚫 Back", callback_data='menu_gateways')]]
+        caption = (
+            f"🦾 <b>{NOMBRE_BOT} | Auth</b> 🦾 4/4\n"
+            "━━━━━━━━━━━━━━━━━━━━━━\n"
+            "🔘 <b>Braintree</b> | ON ✅ | Premium\n"
+            "   ➤ <code>.check_braintree 12345678xxx|MM|YY|CVV</code>\n"
+            "━━━━━━━━━━━━━━━━━━━━━━\n"
+            "🔘 <b>Stripe</b> | ON ✅ | Free\n"
+            "   ➤ <code>.check_stripe 12345678xxx|MM|YY|CVV</code>\n"
+            "━━━━━━━━━━━━━━━━━━━━━━\n"
+            "🔘 <b>Free Gate</b> | ON ✅ | Free\n"
+            "   ➤ <code>.check_gratis 12345678xxx|MM|YY|CVV</code>\n"
+            "━━━━━━━━━━━━━━━━━━━━━━\n"
+            "🔘 <b>Massive Gate</b> | ON ✅ | Premium\n"
+            "   ➤ <code>/mass1 1234 5678 9012...</code>\n"
+            "━━━━━━━━━━━━━━━━━━━━━━\n"
+            "☁️ Bot Version: 1.3 ⛈"
+        )
+        # COLORES RESTAURADOS AQUÍ
+        keyboard = [
+            [InlineKeyboardButton("🚫 Back", callback_data='menu_gateways', api_kwargs={"style": "danger"})]
+        ]
         try: await query.message.edit_caption(caption=caption, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode='HTML')
         except: pass
         
+    # ============ PANEL CHARGE CON COMANDOS ============
     elif query.data == 'gw_charge':
-        caption = (f"🦾 <b>{NOMBRE_BOT} | Charge</b> 🦾 1/1\n━━━━━━━━━━━━━━━━━━━━━━\n🔘 <b>Stripe $1</b> | ON ✅ | Premium\n   ➤ <code>.check_stripe 12345678xxx|MM|YY|CVV</code>\n━━━━━━━━━━━━━━━━━━━━━━\n☁️ Bot Version: 1.3 ⛈")
-        keyboard = [[InlineKeyboardButton("🚫 Back", callback_data='menu_gateways')]]
+        caption = (
+            f"🦾 <b>{NOMBRE_BOT} | Charge</b> 🦾 1/1\n"
+            "━━━━━━━━━━━━━━━━━━━━━━\n"
+            "🔘 <b>Stripe $1</b> | ON ✅ | Premium\n"
+            "   ➤ <code>.check_stripe 12345678xxx|MM|YY|CVV</code>\n"
+            "━━━━━━━━━━━━━━━━━━━━━━\n"
+            "☁️ Bot Version: 1.3 ⛈"
+        )
+        keyboard = [[InlineKeyboardButton("🚫 Back", callback_data='menu_gateways', api_kwargs={"style": "danger"})]]
         try: await query.message.edit_caption(caption=caption, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode='HTML')
         except: pass
         
+    # ============ PANEL FREE CON COMANDOS ============
     elif query.data == 'gw_free':
-        caption = (f"🦾 <b>{NOMBRE_BOT} | Free Gate</b> 🦾 1/1\n━━━━━━━━━━━━━━━━━━━━━━\n🔘 <b>DevTools Luhn</b> | ON ✅ | Free\n   ➤ <code>.check_gratis 12345678xxx|MM|YY|CVV</code>\n━━━━━━━━━━━━━━━━━━━━━━\n☁️ Bot Version: 1.3 ⛈")
-        keyboard = [[InlineKeyboardButton("🚫 Back", callback_data='menu_gateways')]]
+        caption = (
+            f"🦾 <b>{NOMBRE_BOT} | Free Gate</b> 🦾 1/1\n"
+            "━━━━━━━━━━━━━━━━━━━━━━\n"
+            "🔘 <b>DevTools Luhn</b> | ON ✅ | Free\n"
+            "   ➤ <code>.check_gratis 12345678xxx|MM|YY|CVV</code>\n"
+            "━━━━━━━━━━━━━━━━━━━━━━\n"
+            "☁️ Bot Version: 1.3 ⛈"
+        )
+        keyboard = [[InlineKeyboardButton("🚫 Back", callback_data='menu_gateways', api_kwargs={"style": "danger"})]]
         try: await query.message.edit_caption(caption=caption, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode='HTML')
         except: pass
 
+    # ============ PANEL PRINCIPAL ============
     elif query.data == 'btn_back_main':
         caption = f"🦾 <b>{NOMBRE_BOT} | Command Panel</b>\n━━━━━━━━━━━━━━━━━━━━━━\n⚪ Gateways: 4 | Tools: 14\n⚪ Api Status: Online ✅\n━━━━━━━━━━━━━━━━━━━━━━\n🔥 Bot Version: 1.3 ⚡️"
-        keyboard = [[InlineKeyboardButton("⚡ Gateways", callback_data='menu_gateways'), InlineKeyboardButton("⚙️ Tools", callback_data='menu_tools')], [InlineKeyboardButton("📈 Updates ↗", url="https://t.me/tu_canal")]]
-        if es_admin(user.id): keyboard.append([InlineKeyboardButton("👑 Panel de Control", callback_data='owner_panel')])
+        # COLORES RESTAURADOS AQUÍ
+        keyboard = [[InlineKeyboardButton("⚡ Gateways", callback_data='menu_gateways', api_kwargs={"style": "primary"}), InlineKeyboardButton("⚙️ Tools", callback_data='menu_tools', api_kwargs={"style": "primary"})], [InlineKeyboardButton("📈 Updates ↗", url="https://t.me/tu_canal", api_kwargs={"style": "danger"})]]
+        if es_admin(user.id): keyboard.append([InlineKeyboardButton("👑 Panel de Control", callback_data='owner_panel', api_kwargs={"style": "danger"})])
         try: await query.message.edit_caption(caption=caption, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode='HTML')
         except: pass
-
     elif query.data == 'menu_tools':
         tools_text = f"⚙️ <b>{NOMBRE_BOT} | Tools</b>\n━━━━━━━━━━━━━━━━━━━━━━\n1️⃣ `/gen` - Generar Tarjetas\n2️⃣ `/bin` - Consultar BIN\n3️⃣ `/me` - Ver tu Perfil\n4️⃣ `/check_gratis` - Validación Luhn\n5️⃣ `/mass1` - Verificador Masivo\n6️⃣ `/mislives` - Descargar LIVES\n7️⃣ `/daily` - Reclamar créditos\n8️⃣ `/buyvip` - Comprar VIP\n9️⃣ `/stealth` - Modo Incógnito\n🔟 `/dir` - Generar Dirección\n1️⃣1️⃣ `/down` - Descargar Video/Fotos\n━━━━━━━━━━━━━━━━━━━━━━\n💡 <i>Usa con <code>/</code> o <code>.</code></i>"
-        try: await query.message.edit_caption(caption=tools_text, reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("🚫 Back", callback_data='btn_back_main')]]), parse_mode='HTML')
+        try: await query.message.edit_caption(caption=tools_text, reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("🚫 Back", callback_data='btn_back_main', api_kwargs={"style": "danger"})]]), parse_mode='HTML')
         except: pass
 
 # ============ MANEJO DE TEXTO ============
@@ -569,16 +619,14 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
         elif cmd == 'dir': await dir_cmd(update, context)
         elif cmd == 'down': await down_cmd(update, context)
 
-# ============ ARRANQUE PRINCIPAL ============
+# ============ ARRANQUE ============
 def main():
     init_db()
     global NOMBRE_BOT
     NOMBRE_BOT = obtener_nombre()
     
-    # Iniciar el servidor web en un hilo separado para Render
     threading.Thread(target=run_web_server, daemon=True).start()
     
-    # Iniciar el bot
     app = Application.builder().token(TOKEN).build()
     app.add_handler(CommandHandler("start", start_cmd))
     app.add_handler(CommandHandler("cmds", cmds_cmd))
@@ -597,9 +645,11 @@ def main():
     app.add_handler(CommandHandler("down", down_cmd))
     app.add_handler(CommandHandler("broadcast", broadcast))
     app.add_handler(CallbackQueryHandler(button_handler))
-    app.add_handler(MessageHandler(filters.TEXT, handle_text))
     
-    print("🌸 Bot Wuawuri Chk iniciado y escuchando en Render.")
+    # Se mantiene tu manejador original de texto
+    app.add_handler(MessageHandler(filters.TEXT & ~filters.TEXT | filters.COMMAND & ~filters.COMMAND | filters.TEXT, handle_text))
+    
+    print("🌸 Bot Wuawuri Chk iniciado (Render + Colores).")
     app.run_polling()
 
 if __name__ == "__main__":
