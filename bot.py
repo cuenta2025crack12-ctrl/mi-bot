@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 BOT DE TELEGRAM - SUKUNA CHK
-Versión 25.7 - Soporte para Fotos Animadas (Conversión a GIF) + Lógica estable
+Versión 26.0 - Fix error 'titulo' + Lógica robusta para Fotos/Videos/Animadas
 """
 
 import re
@@ -16,7 +16,7 @@ import threading
 import asyncio
 from datetime import datetime, timedelta
 from flask import Flask
-from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, InputMediaPhoto, InputMediaAnimation
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, InputMediaPhoto
 from telegram.ext import Application, CommandHandler, MessageHandler, filters, ContextTypes, CallbackQueryHandler
 from telegram.request import HTTPXRequest
 
@@ -313,7 +313,7 @@ async def setname_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     NOMBRE_BOT = " ".join(context.args); guardar_nombre(NOMBRE_BOT)
     await update.message.reply_text(f"✅ Nombre cambiado a: {NOMBRE_BOT}")
 
-# ============ DESCARGADOR INTELIGENTE (Soporte Live Photos) ============
+# ============ DESCARGADOR INTELIGENTE (Fix Error 'titulo') ============
 async def down_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
     if not context.args: return await update.message.reply_text("❌ Uso: `.down <enlace>`")
@@ -322,7 +322,14 @@ async def down_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     msg = await update.message.reply_text("⏳ Analizando enlace, extrayendo datos y descargando...")
     timestamp = int(time.time())
     
+    # Variables inicializadas por defecto para evitar NameError
+    titulo = "Contenido de TikTok"
+    descripcion = ""
+    archivo_salida = None
+    carpeta_salida = None
+
     try:
+        # 1. Intentar gallery-dl primero para fotos
         if "tiktok.com" in url:
             carpeta_salida = f"media_{user.id}_{timestamp}"
             
@@ -332,7 +339,7 @@ async def down_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 
                 fotos = []
                 videos = []
-                otros = [] # Para archivos raros (Live Photos)
+                otros = []
                 
                 for root, dirs, files in os.walk(carpeta_salida):
                     for file in files:
@@ -340,7 +347,6 @@ async def down_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
                         if file.endswith(('.jpg', '.jpeg', '.png')):
                             fotos.append(ruta)
                         elif file.endswith('.webp'):
-                            # TikTok a veces guarda las animadas como webp
                             otros.append(ruta)
                         elif file.endswith('.mp4'):
                             videos.append(ruta)
@@ -349,7 +355,6 @@ async def down_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 
                 # Si hay fotos normales
                 if fotos:
-                    titulo = "Fotos de TikTok"
                     if len(fotos) > 1:
                         media_group = []
                         for i, ruta_foto in enumerate(fotos[:10]): 
@@ -360,40 +365,33 @@ async def down_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
                         await update.message.reply_photo(photo=open(fotos[0], 'rb'), caption=f"🖼️ <b>{titulo}</b>", parse_mode='HTML')
                     
                     await msg.delete()
-                    shutil.rmtree(carpeta_salida, ignore_errors=True)
                     return
                 
-                # Si hay archivos raros (posibles Live Photos / WebP animados), intentamos convertirlos a GIF
+                # Si hay animadas o webp
                 if otros:
                     for ruta_otro in otros:
                         archivo_gif = f"animado_{user.id}_{timestamp}.gif"
-                        # Usamos ffmpeg para convertirlo a GIF
                         comando_ffmpeg = ["ffmpeg", "-i", ruta_otro, "-vf", "fps=15,scale=320:-1:flags=lanczos", archivo_gif, "-y"]
                         try:
                             subprocess.run(comando_ffmpeg, check=True, capture_output=True, timeout=60)
-                            await update.message.reply_animation(animation=open(archivo_gif, 'rb'), caption="✨ <b>Foto Animada</b>")
+                            await update.message.reply_animation(animation=open(archivo_gif, 'rb'), caption=f"✨ <b>{titulo}</b>")
                             os.remove(archivo_gif)
-                        except Exception as e:
-                            print(f"Error convirtiendo a GIF: {e}")
+                        except Exception as e: print(f"Error convirtiendo a GIF: {e}")
                     
                     await msg.delete()
-                    shutil.rmtree(carpeta_salida, ignore_errors=True)
                     return
 
                 if videos:
                     archivo_salida = videos[0]
-                else:
-                    raise Exception("No se encontraron fotos ni videos.")
                     
             except Exception as e:
-                pass
+                pass # Si falla gallery-dl, pasamos a yt-dlp
 
-        # --- Lógica para Videos ---
-        if not 'archivo_salida' in locals() or not os.path.exists(archivo_salida):
+        # 2. Lógica para Videos (si no se descargó nada como foto)
+        if not archivo_salida or not os.path.exists(archivo_salida):
             archivo_salida = f"video_{user.id}_{timestamp}.mp4"
             
-            titulo = "Video de TikTok"
-            descripcion = ""
+            # Intentar obtener metadatos (con try/except para que no falle si es null)
             try:
                 meta_json = subprocess.run(
                     ["yt-dlp", "--impersonate", "chrome", "--dump-json", "--no-download", url],
@@ -403,7 +401,7 @@ async def down_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     data = json.loads(meta_json.stdout)
                     titulo = data.get('title', 'Video de TikTok')
                     descripcion = data.get('description', '')
-                    if len(descripcion) > 500: descripcion = descripcion[:500] + "..."
+                    if descripcion and len(descripcion) > 500: descripcion = descripcion[:500] + "..."
             except: pass
 
             comando = ["yt-dlp", "--impersonate", "chrome", "--format", "b", "--no-warnings", "-o", archivo_salida, url]
@@ -442,7 +440,7 @@ async def down_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     except Exception as e: 
         await msg.edit_text(f"❌ Error: {e}")
     finally:
-        if 'carpeta_salida' in locals() and os.path.exists(carpeta_salida):
+        if carpeta_salida and os.path.exists(carpeta_salida):
             shutil.rmtree(carpeta_salida, ignore_errors=True)
 
 # ============ COMANDOS RESTAURADOS ============
