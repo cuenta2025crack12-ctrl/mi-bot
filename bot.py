@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 BOT DE TELEGRAM - SUKUNA CHK
-Versión 25.0 - Detección Inteligente (Video/Fotos) + Envío de Fotos en Álbum
+Versión 25.5 - Lógica de descarga corregida (Prioriza fotos en TikTok)
 """
 
 import re
@@ -312,7 +312,7 @@ async def setname_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     NOMBRE_BOT = " ".join(context.args); guardar_nombre(NOMBRE_BOT)
     await update.message.reply_text(f"✅ Nombre cambiado a: {NOMBRE_BOT}")
 
-# ============ DESCARGADOR INTELIGENTE (FIX FOTOS Y ALBUM) ============
+# ============ DESCARGADOR INTELIGENTE (PRIORIZA FOTOS EN TIKTOK) ============
 async def down_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
     if not context.args: return await update.message.reply_text("❌ Uso: `.down <enlace>`")
@@ -322,111 +322,112 @@ async def down_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     timestamp = int(time.time())
     
     try:
-        # 1. Obtener metadatos primero para saber si es video o fotos
-        meta_json = subprocess.run(
-            ["yt-dlp", "--impersonate", "chrome", "--dump-json", "--no-download", url],
-            capture_output=True, text=True, timeout=30
-        )
-        
-        es_foto = False
-        # Si el JSON falla o no tiene 'formats' (es decir, no es video), intentamos como fotos
-        if meta_json.returncode != 0:
-            es_foto = True
-        else:
+        # 1. Si es un enlace de TikTok, intentamos gallery-dl PRIMERO (para fotos y videos)
+        if "tiktok.com" in url:
+            carpeta_salida = f"media_{user.id}_{timestamp}"
+            
             try:
-                data = json.loads(meta_json.stdout)
-                # Si no tiene formatos de video, probablemente sea un carrusel de fotos
-                if not data.get('formats') or len(data.get('formats', [])) == 0:
-                    es_foto = True
-            except:
-                es_foto = True
-
-        if es_foto:
-            # Lógica para Fotos / Carrusel
-            carpeta_salida = f"fotos_{user.id}_{timestamp}"
-            # gallery-dl es más fiable para fotos
-            comando = ["gallery-dl", "--dest", carpeta_salida, url]
-            subprocess.run(comando, check=True, capture_output=True, timeout=120)
-            
-            titulo = "Fotos de TikTok"
-            # Intentar sacar título si es posible
-            if meta_json.returncode == 0:
-                try:
-                    data = json.loads(meta_json.stdout)
-                    titulo = data.get('description', data.get('title', 'Fotos de TikTok'))
-                    if len(titulo) > 200: titulo = titulo[:200] + "..."
-                except: pass
-
-            fotos = []
-            for root, dirs, files in os.walk(carpeta_salida):
-                for file in files:
-                    if file.endswith(('.jpg', '.jpeg', '.png', '.webp')):
-                        fotos.append(os.path.join(root, file))
-                        if len(fotos) >= 10: break
-                if len(fotos) >= 10: break
-            
-            if fotos:
-                if len(fotos) > 1:
-                    media_group = []
-                    for i, ruta_foto in enumerate(fotos):
-                        caption = f"🖼️ <b>{titulo}</b>" if i == 0 else ""
-                        media_group.append(InputMediaPhoto(media=open(ruta_foto, 'rb'), caption=caption, parse_mode='HTML'))
-                    await update.message.reply_media_group(media=media_group)
-                else:
-                    await update.message.reply_photo(photo=open(fotos[0], 'rb'), caption=f"🖼️ <b>{titulo}</b>", parse_mode='HTML')
+                # gallery-dl es más robusto para fotos, pero también baja videos
+                comando = ["gallery-dl", "--dest", carpeta_salida, url]
+                subprocess.run(comando, check=True, capture_output=True, timeout=120)
                 
-                await msg.delete()
-            else:
-                await msg.edit_text("❌ No se encontraron fotos en ese enlace.")
-            
-            shutil.rmtree(carpeta_salida, ignore_errors=True)
-            
-        else:
-            # Lógica para Videos
+                # Revisar qué se descargó
+                fotos = []
+                videos = []
+                for root, dirs, files in os.walk(carpeta_salida):
+                    for file in files:
+                        if file.endswith(('.jpg', '.jpeg', '.png', '.webp')):
+                            fotos.append(os.path.join(root, file))
+                        elif file.endswith('.mp4'):
+                            videos.append(os.path.join(root, file))
+                
+                # Si se descargaron fotos, las enviamos
+                if fotos:
+                    titulo = "Fotos de TikTok"
+                    if len(fotos) > 1:
+                        media_group = []
+                        for i, ruta_foto in enumerate(fotos[:10]): # Máximo 10 fotos por álbum en Telegram
+                            caption = f"🖼️ <b>{titulo}</b>" if i == 0 else ""
+                            media_group.append(InputMediaPhoto(media=open(ruta_foto, 'rb'), caption=caption, parse_mode='HTML'))
+                        await update.message.reply_media_group(media=media_group)
+                    else:
+                        await update.message.reply_photo(photo=open(fotos[0], 'rb'), caption=f"🖼️ <b>{titulo}</b>", parse_mode='HTML')
+                    
+                    await msg.delete()
+                    shutil.rmtree(carpeta_salida, ignore_errors=True)
+                    return # Terminamos aquí si enviamos fotos
+                
+                # Si no hay fotos pero hay video, el flujo continúa abajo para procesar el video
+                if videos:
+                    archivo_salida = videos[0] # Tomamos el primer video descargado
+                else:
+                    raise Exception("No se encontraron fotos ni videos.")
+                    
+            except Exception as e:
+                # Si gallery-dl falla (ej. es un video), usamos yt-dlp
+                pass
+            finally:
+                if os.path.exists(carpeta_salida) and not os.path.exists(os.path.join(carpeta_salida, "video_ready")):
+                    pass # No borramos aquí si necesitamos el video
+
+        # --- Lógica para Videos (Si no fue foto o si gallery-dl falló) ---
+        if not 'archivo_salida' in locals() or not os.path.exists(archivo_salida):
             archivo_salida = f"video_{user.id}_{timestamp}.mp4"
-            archivo_audio = f"audio_{user.id}_{timestamp}.mp3"
             
             titulo = "Video de TikTok"
             descripcion = ""
-            if meta_json.returncode == 0:
-                try:
+            try:
+                meta_json = subprocess.run(
+                    ["yt-dlp", "--impersonate", "chrome", "--dump-json", "--no-download", url],
+                    capture_output=True, text=True, timeout=30
+                )
+                if meta_json.returncode == 0:
                     data = json.loads(meta_json.stdout)
                     titulo = data.get('title', 'Video de TikTok')
                     descripcion = data.get('description', '')
                     if len(descripcion) > 500: descripcion = descripcion[:500] + "..."
-                except: pass
+            except: pass
 
             comando = ["yt-dlp", "--impersonate", "chrome", "--format", "b", "--no-warnings", "-o", archivo_salida, url]
             subprocess.run(comando, check=True, capture_output=True, timeout=120)
+
+        # Procesar y enviar video
+        if os.path.exists(archivo_salida):
+            archivo_audio = f"audio_{user.id}_{timestamp}.mp3"
+            archivo_arreglado = f"fixed_{archivo_salida}"
+            comando_ffmpeg = ["ffmpeg", "-i", archivo_salida, "-vf", "fps=30", "-af", "loudnorm=I=-16:TP=-1.5:LRA=11", "-c:v", "libx264", "-preset", "veryfast", "-crf", "23", "-c:a", "aac", "-b:a", "192k", archivo_arreglado]
             
-            if os.path.exists(archivo_salida):
-                archivo_arreglado = f"fixed_{archivo_salida}"
-                comando_ffmpeg = ["ffmpeg", "-i", archivo_salida, "-vf", "fps=30", "-af", "loudnorm=I=-16:TP=-1.5:LRA=11", "-c:v", "libx264", "-preset", "veryfast", "-crf", "23", "-c:a", "aac", "-b:a", "192k", archivo_arreglado]
-                
-                try:
-                    subprocess.run(comando_ffmpeg, check=True, capture_output=True, timeout=60)
-                    os.remove(archivo_salida); archivo_salida = archivo_arreglado
-                except Exception as e: print(f"No se pudo convertir a CFR: {e}")
+            try:
+                subprocess.run(comando_ffmpeg, check=True, capture_output=True, timeout=60)
+                os.remove(archivo_salida); archivo_salida = archivo_arreglado
+            except Exception as e: print(f"No se pudo convertir a CFR: {e}")
 
-                comando_extraer_audio = ["ffmpeg", "-i", archivo_salida, "-q:a", "0", "-map", "a", archivo_audio]
-                try: subprocess.run(comando_extraer_audio, check=True, capture_output=True, timeout=60)
-                except Exception as e: print(f"No se pudo extraer el audio: {e}")
+            comando_extraer_audio = ["ffmpeg", "-i", archivo_salida, "-q:a", "0", "-map", "a", archivo_audio]
+            try: subprocess.run(comando_extraer_audio, check=True, capture_output=True, timeout=60)
+            except Exception as e: print(f"No se pudo extraer el audio: {e}")
 
-                caption_final = f"🎬 <b>{titulo}</b>"
-                if descripcion: caption_final += f"\n\n📝 {descripcion}"
-                caption_final += f"\n\n〰️ Req By: {user.first_name}"
+            caption_final = f"🎬 <b>{titulo}</b>"
+            if descripcion: caption_final += f"\n\n📝 {descripcion}"
+            caption_final += f"\n\n〰️ Req By: {user.first_name}"
+            
+            await update.message.reply_video(video=open(archivo_salida, 'rb'), caption=caption_final, parse_mode='HTML')
+            
+            if os.path.exists(archivo_audio):
+                await update.message.reply_audio(audio=open(archivo_audio, 'rb'), caption=f"🎵 Audio extraído: {titulo[:50]}...")
+                os.remove(archivo_audio)
+            
+            os.remove(archivo_salida); await msg.delete()
+        else: 
+            await msg.edit_text("❌ No se pudo descargar el contenido.")
                 
-                await update.message.reply_video(video=open(archivo_salida, 'rb'), caption=caption_final, parse_mode='HTML')
-                
-                if os.path.exists(archivo_audio):
-                    await update.message.reply_audio(audio=open(archivo_audio, 'rb'), caption=f"🎵 Audio extraído: {titulo[:50]}...")
-                    os.remove(archivo_audio)
-                
-                os.remove(archivo_salida); await msg.delete()
-            else: await msg.edit_text("❌ No se pudo encontrar el archivo de video.")
-                
-    except subprocess.TimeoutExpired: await msg.edit_text("❌ El video es muy grande o la conexión es lenta.")
-    except Exception as e: await msg.edit_text(f"❌ Error: {e}")
+    except subprocess.TimeoutExpired: 
+        await msg.edit_text("❌ El archivo es muy grande o la conexión es lenta.")
+    except Exception as e: 
+        await msg.edit_text(f"❌ Error: {e}")
+    finally:
+        # Limpieza final de la carpeta temporal
+        if 'carpeta_salida' in locals() and os.path.exists(carpeta_salida):
+            shutil.rmtree(carpeta_salida, ignore_errors=True)
 
 # ============ COMANDOS RESTAURADOS ============
 async def bin_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -703,7 +704,7 @@ def main():
     app.add_handler(MessageHandler(filters.TEXT & ~filters.TEXT | filters.COMMAND & ~filters.COMMAND | filters.TEXT, handle_text))
     
     print("🌸 Bot Sukuna Chk iniciado (Render + Colores + Fix TikTok + Álbum Fotos).")
-    app.run_polling()
+    app.run_polling(connect_timeout=30, read_timeout=30, write_timeout=30, pool_timeout=30)
 
 if __name__ == "__main__":
     main()
