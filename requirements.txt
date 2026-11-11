@@ -4,3 +4,4 @@ requests
 faker
 yt-dlp
 gallery-dl
+curl_cffi
