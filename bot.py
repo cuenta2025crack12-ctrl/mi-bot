@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 BOT DE TELEGRAM - SUKUNA CHK
-Versión 24.5 - Soporte de Fotos en Álbum + Fix TikTok
+Versión 25.0 - Detección Inteligente (Video/Fotos) + Envío de Fotos en Álbum
 """
 
 import re
@@ -322,20 +322,40 @@ async def down_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     timestamp = int(time.time())
     
     try:
-        # Lógica para fotos
-        if "tiktok.com" in url and ("/photo/" in url or "slideshow" in url):
+        # 1. Obtener metadatos primero para saber si es video o fotos
+        meta_json = subprocess.run(
+            ["yt-dlp", "--impersonate", "chrome", "--dump-json", "--no-download", url],
+            capture_output=True, text=True, timeout=30
+        )
+        
+        es_foto = False
+        # Si el JSON falla o no tiene 'formats' (es decir, no es video), intentamos como fotos
+        if meta_json.returncode != 0:
+            es_foto = True
+        else:
+            try:
+                data = json.loads(meta_json.stdout)
+                # Si no tiene formatos de video, probablemente sea un carrusel de fotos
+                if not data.get('formats') or len(data.get('formats', [])) == 0:
+                    es_foto = True
+            except:
+                es_foto = True
+
+        if es_foto:
+            # Lógica para Fotos / Carrusel
             carpeta_salida = f"fotos_{user.id}_{timestamp}"
-            comando = ["gallery-dl", "--dest", carpeta_salida, "--range", "1-10", url]
+            # gallery-dl es más fiable para fotos
+            comando = ["gallery-dl", "--dest", carpeta_salida, url]
             subprocess.run(comando, check=True, capture_output=True, timeout=120)
             
             titulo = "Fotos de TikTok"
-            try:
-                meta_json = subprocess.run(["yt-dlp", "--impersonate", "chrome", "--dump-json", "--no-download", url], capture_output=True, text=True, timeout=30)
-                if meta_json.returncode == 0:
+            # Intentar sacar título si es posible
+            if meta_json.returncode == 0:
+                try:
                     data = json.loads(meta_json.stdout)
                     titulo = data.get('description', data.get('title', 'Fotos de TikTok'))
                     if len(titulo) > 200: titulo = titulo[:200] + "..."
-            except: pass
+                except: pass
 
             fotos = []
             for root, dirs, files in os.walk(carpeta_salida):
@@ -346,16 +366,13 @@ async def down_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 if len(fotos) >= 10: break
             
             if fotos:
-                # Si es más de una foto, las envía como álbum
                 if len(fotos) > 1:
                     media_group = []
                     for i, ruta_foto in enumerate(fotos):
                         caption = f"🖼️ <b>{titulo}</b>" if i == 0 else ""
                         media_group.append(InputMediaPhoto(media=open(ruta_foto, 'rb'), caption=caption, parse_mode='HTML'))
-                    
                     await update.message.reply_media_group(media=media_group)
                 else:
-                    # Si es solo una foto
                     await update.message.reply_photo(photo=open(fotos[0], 'rb'), caption=f"🖼️ <b>{titulo}</b>", parse_mode='HTML')
                 
                 await msg.delete()
@@ -365,20 +382,19 @@ async def down_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
             shutil.rmtree(carpeta_salida, ignore_errors=True)
             
         else:
-            # Lógica para videos
+            # Lógica para Videos
             archivo_salida = f"video_{user.id}_{timestamp}.mp4"
             archivo_audio = f"audio_{user.id}_{timestamp}.mp3"
             
             titulo = "Video de TikTok"
             descripcion = ""
-            try:
-                meta_json = subprocess.run(["yt-dlp", "--impersonate", "chrome", "--dump-json", "--no-download", url], capture_output=True, text=True, timeout=30)
-                if meta_json.returncode == 0:
+            if meta_json.returncode == 0:
+                try:
                     data = json.loads(meta_json.stdout)
                     titulo = data.get('title', 'Video de TikTok')
                     descripcion = data.get('description', '')
                     if len(descripcion) > 500: descripcion = descripcion[:500] + "..."
-            except Exception as e: print(f"No se pudieron extraer metadatos: {e}")
+                except: pass
 
             comando = ["yt-dlp", "--impersonate", "chrome", "--format", "b", "--no-warnings", "-o", archivo_salida, url]
             subprocess.run(comando, check=True, capture_output=True, timeout=120)
