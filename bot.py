@@ -1,11 +1,12 @@
 #!/usr/bin/env python3
 """
 BOT DE TELEGRAM - SUKUNA CHK
-Versión 23.0 - Líneas estilizadas con <code> (Color integrado)
+Versión 24.0 - Líneas con <code> + Fix TikTok (Impersonate Chrome)
 """
 
 import re
 import random
+import requests
 import time
 import json
 import sqlite3
@@ -202,7 +203,6 @@ async def ejecutar_generacion_dir(update: Update, context: ContextTypes.DEFAULT_
         except: estado = fake.city()
         telefono = fake.phone_number(); cp = fake.postcode()
         
-        # LÍNEAS CON <code> PARA HEREDAR EL COLOR GRIS OSCURO
         texto = (
             f"<a href='tg://user?id={user.id}'>{user.first_name}</a>\n"
             f"<code>.dir {codigo}</code>\n"
@@ -250,7 +250,6 @@ async def gen_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     rango = "👤 Anónimo » VIP" if context.user_data.get('stealth') else get_rango(user.id, user.first_name)
     nombre_mostrar = "Anónimo" if context.user_data.get('stealth') else user.first_name
 
-    # LÍNEAS CON <code>
     texto = f"<a href='tg://user?id={user.id}'>{nombre_mostrar}</a>\n<code>.gen {arg}</code>\n⚡ <b>{NOMBRE_BOT} | CC Generator</b>\n<code>━━━━━━━━━━━━━━━━━━━━━━━</code>\n"
     for t in tarjetas: texto += f"<code>{t}</code>\n"
     texto += f"<code>━━━━━━━━━━━━━━━━━━━━━━━</code>\n➤ <b>Bin:</b> {limpiar_numero(partes[0])[:6]}\n➤ <b>Info:</b> {brand}\n➤ <b>Issuer:</b> {banco}\n➤ <b>Country:</b> {pais}\n<code>━━━━━━━━━━━━━━━━━━━━━━━</code>\n〰️ <b>Req By:</b> {rango}\n<code>━━━━━━━━━━━━━━━━━━━━━━━</code>\n🔥 <b>Bot Version:</b> 1.3 ⛈"
@@ -283,7 +282,6 @@ async def me_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     uid, nombre, username, es_vip_val, baneado, crds, expiracion, creditos, ultimo_diario = datos
     status = "❌ Inactiva" if not es_vip_val and not es_admin(uid) else "✅ Activa"
     rol = "FUNDADOR" if es_owner(uid) else "ADMIN" if es_admin(uid) else "USER"
-    # LÍNEAS CON <code>
     texto = f"🦾 <b>{NOMBRE_BOT} | User Info</b> ⛈\n<code>━━━━━━━━━━━━━━━━━━━━━━━</code>\n🔘 <b>User:</b> {nombre} (<code>{uid}</code>)\n🔘 <b>Username:</b> {username}\n🔘 <b>Plan:</b> PREMIUM | Role: {rol}\n🔘 <b>Status:</b> {'BANNED 🚫' if baneado else 'ACTIVE 🟢'}\n🔘 <b>Crds:</b> {crds} | <b>Cookies:</b> 0\n🔘 <b>Expiration:</b> {expiracion}\n🔘 <b>Créditos:</b> {creditos}\n<code>━━━━━━━━━━━━━━━━━━━━━━━</code>\n🔥 <b>Bot Version:</b> 1.3 ⛈"
     await update.message.reply_text(texto, parse_mode='HTML')
 
@@ -315,7 +313,7 @@ async def setname_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     NOMBRE_BOT = " ".join(context.args); guardar_nombre(NOMBRE_BOT)
     await update.message.reply_text(f"✅ Nombre cambiado a: {NOMBRE_BOT}")
 
-# ============ DESCARGADOR INTELIGENTE CON AUDIO Y CFR ============
+# ============ DESCARGADOR INTELIGENTE (FIX TIKTOK) ============
 async def down_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
     if not context.args: return await update.message.reply_text("❌ Uso: `.down <enlace>`")
@@ -332,7 +330,7 @@ async def down_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
             
             titulo = "Fotos de TikTok"
             try:
-                meta_json = subprocess.run(["yt-dlp", "--dump-json", "--no-download", url], capture_output=True, text=True, timeout=30)
+                meta_json = subprocess.run(["yt-dlp", "--impersonate", "chrome", "--dump-json", "--no-download", url], capture_output=True, text=True, timeout=30)
                 if meta_json.returncode == 0:
                     data = json.loads(meta_json.stdout)
                     titulo = data.get('description', data.get('title', 'Fotos de TikTok'))
@@ -361,7 +359,7 @@ async def down_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
             titulo = "Video de TikTok"
             descripcion = ""
             try:
-                meta_json = subprocess.run(["yt-dlp", "--dump-json", "--no-download", url], capture_output=True, text=True, timeout=30)
+                meta_json = subprocess.run(["yt-dlp", "--impersonate", "chrome", "--dump-json", "--no-download", url], capture_output=True, text=True, timeout=30)
                 if meta_json.returncode == 0:
                     data = json.loads(meta_json.stdout)
                     titulo = data.get('title', 'Video de TikTok')
@@ -369,7 +367,7 @@ async def down_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     if len(descripcion) > 500: descripcion = descripcion[:500] + "..."
             except Exception as e: print(f"No se pudieron extraer metadatos: {e}")
 
-            comando = ["yt-dlp", "-f", "best", "--no-warnings", "-o", archivo_salida, url]
+            comando = ["yt-dlp", "--impersonate", "chrome", "--format", "b", "--no-warnings", "-o", archivo_salida, url]
             subprocess.run(comando, check=True, capture_output=True, timeout=120)
             
             if os.path.exists(archivo_salida):
@@ -412,7 +410,6 @@ async def bin_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     banco = info.get('bank', {}).get('name', 'N/A').upper() if info else 'N/A'
     pais = info.get('country', {}).get('name', 'N/A').upper() if info else 'N/A'
     bandera = info.get('country', {}).get('emoji', '🏳️') if info else '🏳️'
-    # LÍNEAS CON <code>
     texto = f"<a href='tg://user?id={user.id}'>{user.first_name}</a>\n<code>.bin {bin_num}</code>\n⚡ <b>{NOMBRE_BOT} | BIN Lookup</b>\n<code>━━━━━━━━━━━━━━━━━━━━━━━</code>\n➤ <b>BIN:</b> {bin_num}\n➤ <b>Info:</b> {brand} - {tipo}\n➤ <b>Issuer:</b> {banco}\n➤ <b>Country:</b> {pais} {bandera}\n<code>━━━━━━━━━━━━━━━━━━━━━━━</code>\n〰️ <b>Req By:</b> {get_rango(user.id, user.first_name)}\n<code>━━━━━━━━━━━━━━━━━━━━━━━</code>\n🔥 <b>Bot Version:</b> 1.3 ⛈"
     await update.message.reply_text(texto, parse_mode='HTML')
 
@@ -421,7 +418,6 @@ async def check_gratis_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not context.args or len(context.args[0].split('|')) != 4: return await update.message.reply_text("❌ Uso: `.check_gratis NUM|MES|AÑO|CVV`")
     p = context.args[0].split('|'); num = limpiar_numero(p[0])
     status = "✅ VÁLIDA" if luhn_check(num) else "❌ INVÁLIDA"
-    # LÍNEAS CON <code>
     texto = f"🦾 <b>{NOMBRE_BOT} | Validación</b>\n<code>━━━━━━━━━━━━━━━━━━━━━━━</code>\n➤ <b>Número:</b> <code>{p[0]}</code>\n➤ <b>Resultado:</b> {status}\n➤ <b>Tipo:</b> {detectar_tipo(num)}\n<code>━━━━━━━━━━━━━━━━━━━━━━━</code>"
     await update.message.reply_text(texto, parse_mode='HTML')
 
@@ -439,7 +435,6 @@ async def mss1_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     msg = await update.message.reply_text(f"⏳ Verificando {len(tarjetas)}...")
     lives = [t for t in tarjetas if luhn_check(t.split('|')[0])]
     for l in lives: guardar_live(l, user.id)
-    # LÍNEAS CON <code>
     texto = f"🦾 <b>{NOMBRE_BOT} | Masivo</b>\n<code>━━━━━━━━━━━━━━━━━━━━━━━</code>\n✅ <b>LIVES ({len(lives)}):</b>\n"
     for l in lives: texto += f"`{l}`\n"
     texto += f"\n❌ <b>DEAD:</b> {len(tarjetas)-len(lives)}\n<code>━━━━━━━━━━━━━━━━━━━━━━━</code>"
@@ -460,7 +455,6 @@ async def owner_panel(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query; await query.answer()
     if not es_admin(update.effective_user.id): return await query.answer("❌ No permisos.", show_alert=True)
     conn = sqlite3.connect('bot_stats.db'); c = conn.cursor(); c.execute("SELECT COUNT(*) FROM usuarios"); total = c.fetchone()[0]; c.execute("SELECT COUNT(*) FROM usuarios WHERE es_vip=1"); vips = c.fetchone()[0]; conn.close()
-    # LÍNEAS CON <code>
     caption = f"👑 <b>{NOMBRE_BOT} | Fundador Panel</b>\n<code>━━━━━━━━━━━━━━━━━━━━━━</code>\n👥 Usuarios: <b>{total}</b>\n⭐ VIPs: <b>{vips}</b>\n<code>━━━━━━━━━━━━━━━━━━━━━━</code>"
     keyboard = [
         [InlineKeyboardButton("👥 Gestionar Usuarios", callback_data='admin_users_0', api_kwargs={"style": "primary"})],
@@ -475,7 +469,6 @@ async def admin_list_users(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not es_admin(update.effective_user.id): return
     page = int(query.data.split('_')[-1]); limit = 5; offset = page * limit
     conn = sqlite3.connect('bot_stats.db'); c = conn.cursor(); c.execute("SELECT id, nombre, es_vip FROM usuarios LIMIT ? OFFSET ?", (limit, offset)); usuarios = c.fetchall(); c.execute("SELECT COUNT(*) FROM usuarios"); total = c.fetchone()[0]; conn.close()
-    # LÍNEAS CON <code>
     caption = f"👥 <b>Usuarios</b> (Pág {page+1})\n<code>━━━━━━━━━━━━━━━━━━━━━━</code>\n"; keyboard = []
     for u_id, nombre, vip in usuarios:
         caption += f"🆔 <code>{u_id}</code> | {nombre} | {'⭐' if vip else '👤'}\n"
@@ -532,7 +525,6 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         partes = datos["arg"].split('|')
         tarjetas = generar_tarjetas(datos["cantidad"], partes[0], partes[1] if len(partes)>1 else None, partes[2] if len(partes)>2 else None, partes[3] if len(partes)>3 else None)
         info_bin = {"scheme": "visa", "type": "debit", "brand": "classic", "bank": {"name": "Banco Agricola S.A."}, "country": {"name": "El Salvador", "emoji": "🇸🇻"}} if limpiar_numero(partes[0])[:6] == "411841" else None
-        # LÍNEAS CON <code>
         texto = f"<a href='tg://user?id={user.id}'>{user.first_name}</a>\n<code>.gen {datos['arg']}</code>\n⚡ <b>{NOMBRE_BOT} | CC Generator</b>\n<code>━━━━━━━━━━━━━━━━━━━━━━━</code>\n"
         for t in tarjetas: texto += f"<code>{t}</code>\n"
         texto += f"<code>━━━━━━━━━━━━━━━━━━━━━━━</code>\n➤ <b>Bin:</b> {limpiar_numero(partes[0])[:6]}\n➤ <b>Info:</b> {info_bin['scheme'].upper() if info_bin else 'N/A'}\n➤ <b>Issuer:</b> {info_bin['bank']['name'].upper() if info_bin else 'N/A'}\n➤ <b>Country:</b> {info_bin['country']['name'].upper() if info_bin else 'N/A'}\n<code>━━━━━━━━━━━━━━━━━━━━━━━</code>\n〰️ <b>Req By:</b> {get_rango(user.id, user.first_name)}\n<code>━━━━━━━━━━━━━━━━━━━━━━━</code>\n🔥 <b>Bot Version:</b> 1.3 ⛈"
@@ -555,7 +547,6 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     # ============ MENÚ GATEWAYS ============
     elif query.data == 'menu_gateways':
-        # LÍNEAS CON <code>
         caption = f"🦾 <b>{NOMBRE_BOT} | Gateways</b>\n<code>━━━━━━━━━━━━━━━━━━━━━━</code>\n🔘 Active: 4 🟩\n🔘 Inactive: 0 ❌\n🔘 Maintenance: 0 ⚠️\n<code>━━━━━━━━━━━━━━━━━━━━━━</code>\n☁️ Bot Version: 1.3 ⛈"
         keyboard = [
             [InlineKeyboardButton("🔘 Auth", callback_data='gw_auth', api_kwargs={"style": "primary"}), InlineKeyboardButton("🔘 Charge", callback_data='gw_charge', api_kwargs={"style": "primary"})], 
@@ -567,7 +558,6 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         
     # ============ PANEL AUTH CON COMANDOS ============
     elif query.data == 'gw_auth':
-        # LÍNEAS CON <code>
         caption = (
             f"🦾 <b>{NOMBRE_BOT} | Auth</b> 🦾 4/4\n"
             "<code>━━━━━━━━━━━━━━━━━━━━━━</code>\n"
@@ -593,7 +583,6 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         
     # ============ PANEL CHARGE CON COMANDOS ============
     elif query.data == 'gw_charge':
-        # LÍNEAS CON <code>
         caption = (
             f"🦾 <b>{NOMBRE_BOT} | Charge</b> 🦾 1/1\n"
             "<code>━━━━━━━━━━━━━━━━━━━━━━</code>\n"
@@ -608,7 +597,6 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         
     # ============ PANEL FREE CON COMANDOS ============
     elif query.data == 'gw_free':
-        # LÍNEAS CON <code>
         caption = (
             f"🦾 <b>{NOMBRE_BOT} | Free Gate</b> 🦾 1/1\n"
             "<code>━━━━━━━━━━━━━━━━━━━━━━</code>\n"
@@ -623,14 +611,12 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     # ============ PANEL PRINCIPAL ============
     elif query.data == 'btn_back_main':
-        # LÍNEAS CON <code>
         caption = f"🦾 <b>{NOMBRE_BOT} | Command Panel</b>\n<code>━━━━━━━━━━━━━━━━━━━━━━</code>\n⚪ Gateways: 4 | Tools: 14\n⚪ Api Status: Online ✅\n<code>━━━━━━━━━━━━━━━━━━━━━━</code>\n🔥 Bot Version: 1.3 ⚡️"
         keyboard = [[InlineKeyboardButton("⚡ Gateways", callback_data='menu_gateways', api_kwargs={"style": "primary"}), InlineKeyboardButton("⚙️ Tools", callback_data='menu_tools', api_kwargs={"style": "primary"})], [InlineKeyboardButton("📈 Updates ↗", url="https://t.me/tu_canal", api_kwargs={"style": "danger"})]]
         if es_admin(user.id): keyboard.append([InlineKeyboardButton("👑 Panel de Control", callback_data='owner_panel', api_kwargs={"style": "danger"})])
         try: await query.message.edit_caption(caption=caption, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode='HTML')
         except: pass
     elif query.data == 'menu_tools':
-        # LÍNEAS CON <code>
         tools_text = f"⚙️ <b>{NOMBRE_BOT} | Tools</b>\n<code>━━━━━━━━━━━━━━━━━━━━━━</code>\n1️⃣ `/gen` - Generar Tarjetas\n2️⃣ `/bin` - Consultar BIN\n3️⃣ `/me` - Ver tu Perfil\n4️⃣ `/check_gratis` - Validación Luhn\n5️⃣ `/mass1` - Verificador Masivo\n6️⃣ `/mislives` - Descargar LIVES\n7️⃣ `/daily` - Reclamar créditos\n8️⃣ `/buyvip` - Comprar VIP\n9️⃣ `/stealth` - Modo Incógnito\n🔟 `/dir` - Generar Dirección\n1️⃣1️⃣ `/down` - Descargar Video/Fotos\n<code>━━━━━━━━━━━━━━━━━━━━━━</code>\n💡 <i>Usa con <code>/</code> o <code>.</code></i>"
         try: await query.message.edit_caption(caption=tools_text, reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("🚫 Back", callback_data='btn_back_main', api_kwargs={"style": "danger"})]]), parse_mode='HTML')
         except: pass
@@ -687,7 +673,7 @@ def main():
     
     app.add_handler(MessageHandler(filters.TEXT & ~filters.TEXT | filters.COMMAND & ~filters.COMMAND | filters.TEXT, handle_text))
     
-    print("🌸 Bot Sukuna Chk iniciado (Render + Colores).")
+    print("🌸 Bot Sukuna Chk iniciado (Render + Colores + Fix TikTok).")
     app.run_polling()
 
 if __name__ == "__main__":
