@@ -1,12 +1,11 @@
 #!/usr/bin/env python3
 """
 BOT DE TELEGRAM - SUKUNA CHK
-Versión 24.0 - Líneas con <code> + Fix TikTok (Impersonate Chrome)
+Versión 24.5 - Soporte de Fotos en Álbum + Fix TikTok
 """
 
 import re
 import random
-import requests
 import time
 import json
 import sqlite3
@@ -17,7 +16,7 @@ import threading
 import asyncio
 from datetime import datetime, timedelta
 from flask import Flask
-from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, InputMediaPhoto
 from telegram.ext import Application, CommandHandler, MessageHandler, filters, ContextTypes, CallbackQueryHandler
 
 # ============ CONFIGURACIÓN ============
@@ -313,7 +312,7 @@ async def setname_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     NOMBRE_BOT = " ".join(context.args); guardar_nombre(NOMBRE_BOT)
     await update.message.reply_text(f"✅ Nombre cambiado a: {NOMBRE_BOT}")
 
-# ============ DESCARGADOR INTELIGENTE (FIX TIKTOK) ============
+# ============ DESCARGADOR INTELIGENTE (FIX FOTOS Y ALBUM) ============
 async def down_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
     if not context.args: return await update.message.reply_text("❌ Uso: `.down <enlace>`")
@@ -323,6 +322,7 @@ async def down_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     timestamp = int(time.time())
     
     try:
+        # Lógica para fotos
         if "tiktok.com" in url and ("/photo/" in url or "slideshow" in url):
             carpeta_salida = f"fotos_{user.id}_{timestamp}"
             comando = ["gallery-dl", "--dest", carpeta_salida, "--range", "1-10", url]
@@ -337,22 +337,35 @@ async def down_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     if len(titulo) > 200: titulo = titulo[:200] + "..."
             except: pass
 
-            fotos_enviadas = 0
+            fotos = []
             for root, dirs, files in os.walk(carpeta_salida):
                 for file in files:
                     if file.endswith(('.jpg', '.jpeg', '.png', '.webp')):
-                        ruta_foto = os.path.join(root, file)
-                        caption_foto = f"🖼️ <b>{titulo}</b>\n\n📸 Foto {fotos_enviadas+1}" if fotos_enviadas == 0 else f"📸 Foto {fotos_enviadas+1}"
-                        await update.message.reply_photo(photo=open(ruta_foto, 'rb'), caption=caption_foto, parse_mode='HTML')
-                        fotos_enviadas += 1
-                        if fotos_enviadas >= 10: break
-                if fotos_enviadas >= 10: break
+                        fotos.append(os.path.join(root, file))
+                        if len(fotos) >= 10: break
+                if len(fotos) >= 10: break
+            
+            if fotos:
+                # Si es más de una foto, las envía como álbum
+                if len(fotos) > 1:
+                    media_group = []
+                    for i, ruta_foto in enumerate(fotos):
+                        caption = f"🖼️ <b>{titulo}</b>" if i == 0 else ""
+                        media_group.append(InputMediaPhoto(media=open(ruta_foto, 'rb'), caption=caption, parse_mode='HTML'))
+                    
+                    await update.message.reply_media_group(media=media_group)
+                else:
+                    # Si es solo una foto
+                    await update.message.reply_photo(photo=open(fotos[0], 'rb'), caption=f"🖼️ <b>{titulo}</b>", parse_mode='HTML')
+                
+                await msg.delete()
+            else:
+                await msg.edit_text("❌ No se encontraron fotos en ese enlace.")
             
             shutil.rmtree(carpeta_salida, ignore_errors=True)
-            if fotos_enviadas > 0: await msg.delete()
-            else: await msg.edit_text("❌ No se encontraron fotos en ese enlace.")
             
         else:
+            # Lógica para videos
             archivo_salida = f"video_{user.id}_{timestamp}.mp4"
             archivo_audio = f"audio_{user.id}_{timestamp}.mp3"
             
@@ -673,7 +686,7 @@ def main():
     
     app.add_handler(MessageHandler(filters.TEXT & ~filters.TEXT | filters.COMMAND & ~filters.COMMAND | filters.TEXT, handle_text))
     
-    print("🌸 Bot Sukuna Chk iniciado (Render + Colores + Fix TikTok).")
+    print("🌸 Bot Sukuna Chk iniciado (Render + Colores + Fix TikTok + Álbum Fotos).")
     app.run_polling()
 
 if __name__ == "__main__":
